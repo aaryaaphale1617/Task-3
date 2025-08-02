@@ -1,0 +1,198 @@
+import pygame
+import random
+import sys
+
+pygame.init()
+
+# Screen setup
+WIDTH, HEIGHT = 800, 500
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Hangman Game")
+
+# Fonts
+FONT = pygame.font.SysFont('arial', 40)
+LETTER_FONT = pygame.font.SysFont('arial', 30)
+WORD_FONT = pygame.font.SysFont('arial', 50)
+MESSAGE_FONT = pygame.font.SysFont('arial', 40)
+SMALL_FONT = pygame.font.SysFont('arial', 24)
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GRAY = (180, 180, 180)
+RED = (255, 0, 0)
+GREEN = (0, 200, 0)
+LIGHT_BLUE = (173, 216, 230)
+DARK_BLUE = (0, 0, 139)
+
+# Game variables
+RADIUS = 20
+GAP = 15
+letters = []
+startx = round((WIDTH - (RADIUS * 2 + GAP) * 13) / 2)
+starty = 400
+
+A = 65
+for i in range(26):
+    x = startx + GAP * 2 + ((RADIUS * 2 + GAP) * (i % 13))
+    y = starty + ((i // 13) * (GAP + RADIUS * 2))
+    letters.append([x, y, chr(A + i), True])
+
+# Hangman status
+hangman_status = 0
+score = 0
+
+# Words list
+words = [
+    {"word": "AL PACINO", "hint": "Actor"},
+    {"word": "PYTHON", "hint": "Programming Language"},
+    {"word": "ELEPHANT", "hint": "Animal"},
+    {"word": "BATMAN", "hint": "Superhero"},
+    {"word": "MOUNTAIN", "hint": "Geography"},
+]
+word_data = random.choice(words)
+word = word_data["word"]
+hint = word_data["hint"]
+guessed = []
+
+# Draw hangman
+def draw_hangman(stage):
+    if stage >= 1:
+        pygame.draw.circle(screen, BLACK, (150, 150), 30, 3)  # Head
+    if stage >= 2:
+        pygame.draw.line(screen, BLACK, (150, 180), (150, 250), 3)  # Body
+    if stage >= 3:
+        pygame.draw.line(screen, BLACK, (150, 200), (120, 230), 3)  # Left Arm
+    if stage >= 4:
+        pygame.draw.line(screen, BLACK, (150, 200), (180, 230), 3)  # Right Arm
+    if stage >= 5:
+        pygame.draw.line(screen, BLACK, (150, 250), (120, 300), 3)  # Left Leg
+    if stage >= 6:
+        pygame.draw.line(screen, BLACK, (150, 250), (180, 300), 3)  # Right Leg
+
+# Draw function
+def draw():
+    screen.fill(LIGHT_BLUE)
+
+    # Draw title
+    text = FONT.render("Hangman Game", True, DARK_BLUE)
+    screen.blit(text, (WIDTH // 2 - text.get_width() // 2, 20))
+
+    # Draw hint
+    hint_text = LETTER_FONT.render(f"Hint: {hint}", True, BLACK)
+    screen.blit(hint_text, (20, 80))
+
+    # Draw word
+    display_word = ''
+    for letter in word:
+        if letter == ' ':
+            display_word += '   '
+        elif letter.upper() in guessed:
+            display_word += letter + ' '
+        else:
+            display_word += '_ '
+    text = WORD_FONT.render(display_word.strip(), True, BLACK)
+    screen.blit(text, (WIDTH // 2 - text.get_width() // 2, 150))
+
+    # Draw buttons
+    for letter in letters:
+        x, y, ltr, visible = letter
+        if visible:
+            pygame.draw.circle(screen, DARK_BLUE, (x, y), RADIUS)
+            text = LETTER_FONT.render(ltr, True, WHITE)
+            screen.blit(text, (x - text.get_width() // 2, y - text.get_height() // 2))
+        else:
+            color = GREEN if ltr in word else RED
+            pygame.draw.circle(screen, color, (x, y), RADIUS)
+            text = LETTER_FONT.render(ltr, True, WHITE)
+            screen.blit(text, (x - text.get_width() // 2, y - text.get_height() // 2))
+
+    # Gallows
+    pygame.draw.line(screen, BLACK, (50, 350), (200, 350), 5)
+    pygame.draw.line(screen, BLACK, (125, 350), (125, 100), 5)
+    pygame.draw.line(screen, BLACK, (125, 100), (150, 100), 5)
+    pygame.draw.line(screen, BLACK, (150, 100), (150, 120), 5)
+
+    draw_hangman(hangman_status)
+
+    # Score and attempts
+    score_text = SMALL_FONT.render(f"Score: {score}", True, BLACK)
+    attempts_text = SMALL_FONT.render(f"Incorrect guesses: {hangman_status}/6", True, BLACK)
+    screen.blit(score_text, (WIDTH - 150, 20))
+    screen.blit(attempts_text, (WIDTH - 200, 50))
+
+    pygame.display.update()
+
+# Display message
+def display_message(message, color=GREEN):
+    pygame.time.delay(1000)
+    screen.fill(LIGHT_BLUE)
+    text = MESSAGE_FONT.render(message, True, color)
+    screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - text.get_height()//2))
+    restart_text = SMALL_FONT.render("Press SPACE to play again or ESC to quit", True, BLACK)
+    screen.blit(restart_text, (WIDTH//2 - restart_text.get_width()//2, HEIGHT//2 + 50))
+    pygame.display.update()
+
+# Wait for restart
+def wait_for_restart():
+    global word, hint, guessed, hangman_status, letters
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    # Reset game
+                    word_data = random.choice(words)
+                    word = word_data["word"]
+                    hint = word_data["hint"]
+                    guessed.clear()
+                    hangman_status = 0
+                    for letter in letters:
+                        letter[3] = True
+                    waiting = False
+                elif event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+
+# Game loop
+run = True
+while run:
+    draw()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            run = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            m_x, m_y = pygame.mouse.get_pos()
+            for letter in letters:
+                x, y, ltr, visible = letter
+                if visible:
+                    dis = ((x - m_x) ** 2 + (y - m_y) ** 2) ** 0.5
+                    if dis < RADIUS:
+                        letter[3] = False
+                        guessed.append(ltr)
+                        if ltr not in word:
+                            hangman_status += 1
+
+    # Win condition
+    won = True
+    for letter in word:
+        if letter != ' ' and letter.upper() not in guessed:
+            won = False
+            break
+
+    if won:
+        score += 1
+        display_message("You WON!", GREEN)
+        wait_for_restart()
+
+    # Lose condition
+    if hangman_status == 6:
+        display_message(f"You LOST! Word was: {word}", RED)
+        wait_for_restart()
+
+pygame.quit()
+sys.exit()
